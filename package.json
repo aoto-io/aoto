@@ -1,0 +1,27 @@
+{
+  "name": "aoto",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aoto-io/aoto.git"
+  },
+  "author": "wyattzheng",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/aoto-io/aoto/issues"
+  },
+  "homepage": "https://github.com/aoto-io/aoto#readme",
+  "packageManager": "pnpm@10.22.0",
+  "dependencies": {
+    "turbo": "2.5.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
+}

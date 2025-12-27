@@ -1,0 +1,14 @@
+{
+	"tasks": {
+		"clean": { "cache": false },
+		"build": {
+			"dependsOn": ["^build"],
+			"outputs": ["dist/**"]
+		},
+		"typecheck": {
+			"dependsOn": ["^typecheck", "^build"]
+		},
+		"watch": { "cache": false, "persistent": true },
+		"dev": { "cache": false, "persistent": true }
+	}
+}
