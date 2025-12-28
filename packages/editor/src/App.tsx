@@ -1,12 +1,12 @@
-import './App.css'
+import { SideBar } from './sidebar'
+import { Canvas } from './canvas'
 
 function App() {
   return (
-    <>
-      <h1 className="text-3xl font-bold underline">
-        Hello aoto!
-      </h1>
-    </>
+    <div className='flex h-[100%] w-[100%]'>
+      <SideBar></SideBar>
+      <Canvas></Canvas>
+    </div>
   )
 }
 
