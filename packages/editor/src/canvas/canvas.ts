@@ -160,11 +160,14 @@ export class ProgramCanvas {
     }
 
     private drawFootprint(object: DrawObject) {
+        this.ctx.save();
         const x = object.rect.x - this.viewport.x;
         const y = object.rect.y - this.viewport.y;        
         this.ctx.fillStyle = object.fillStyle;
+        this.ctx.globalAlpha = 0.8;
+        
         const type = object.params.showType as FootprintLayoutType;
-        const size = 0.4;
+        const size = 0.2;
         const half = size / 2;
         if (type === FootprintLayoutEnum.POINT) {
             this.ctx.fillRect(x + 0.5 - half, y + 0.5 + half, size, size);
@@ -173,9 +176,15 @@ export class ProgramCanvas {
         } else if (type === FootprintLayoutEnum.TOP_DOWN) {
             this.ctx.fillRect(x + 0.5 - half, y, size, 1);
         } else if (type === FootprintLayoutEnum.TOP_RIGHT) {
-            this.ctx.fillRect(x + 0.5 - half, y, size, 0.5 + half);
-            this.ctx.fillRect(x + 0.5 - half, y + 0.5 - half, 0.5 + half, size);
+            this.ctx.fillRect(x + 0.5 - half, y, size, 0.5 + half - size);
+            this.ctx.fillRect(x + 0.5 - half + size, y + 0.5 - half, 0.5 + half - size, size);
+            this.ctx.beginPath();
+            this.ctx.arc(x + 0.5 + half, y + 0.5 - half, size, Math.PI / 2,  Math.PI);
+            this.ctx.lineTo(x + 0.5 + half, y + 0.5 - half)
+            this.ctx.fill();
+
         }
+        this.ctx.restore();
     }
 
     private drawProgramNode(object: DrawObject) {
@@ -184,7 +193,7 @@ export class ProgramCanvas {
         this.ctx.save();
         this.ctx.strokeStyle = '#CCC';
         this.ctx.fillStyle = '#FFF';
-        this.ctx.lineWidth = 0.12;
+        this.ctx.lineWidth = 0.25;
         this.ctx.beginPath();
         this.ctx.roundRect(
             nodePos.x - NODE_SURROUND, 

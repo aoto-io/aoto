@@ -20,19 +20,19 @@ export function Canvas() {
             footprints: [
                 {
                     key: '',
-                    color: '#333',
+                    color: '#888',
                     isPoint: false,
                     rect: {x: 0, y: 0}
                 },
                 {
                     key: '',
-                    color: '#333',
+                    color: '#888',
                     isPoint: false,
                     rect: {x: 0, y: 1}
                 },
                 {
                     key: '',
-                    color: '#333',
+                    color: '#888',
                     isPoint: false,
                     rect: {x: 1, y: 1}
                 }
