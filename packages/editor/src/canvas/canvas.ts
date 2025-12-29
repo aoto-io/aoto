@@ -258,8 +258,8 @@ export class ProgramCanvas {
         this.ctx.stroke();
         this.ctx.fill();
         this.ctx.fillStyle = '#000';
-        const textPos = this.worldToScreen(object.rect.x + w / 2, object.rect.y + h);
-        this.drawText(textPos.x, textPos.y, object.params.name, 0.5);
+        const textPos = this.worldToScreen(object.rect.x + object.rect.w / 2, object.rect.y + object.rect.h);
+        this.drawText(textPos.x, textPos.y, object.params.name, 0.35);
         if (object.selected) {
             // shadow
             this.ctx.globalAlpha = 0.3;
