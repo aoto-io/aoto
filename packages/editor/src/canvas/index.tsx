@@ -5,9 +5,18 @@ export function Canvas() {
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const programCanvas = new ProgramCanvas(containerRef.current);
-        programCanvas.update({
-            nodes: [],
+        const canvas = new ProgramCanvas(containerRef.current);
+        canvas.update({
+            nodes: [
+                {
+                    id: '1',
+                    type: 'Code',
+                    name: '执行代码',
+                    icon: '',
+                    points: [],
+                    rect: { x: -4, y: -3, w: 3, h: 4 }
+                }
+            ],
             footprints: [
                 {
                     key: '',
@@ -26,11 +35,11 @@ export function Canvas() {
                     color: '#333',
                     isPoint: false,
                     rect: {x: 1, y: 1}
-                },
+                }
             ],
         })
         return () => {
-            programCanvas.dispose();
+            canvas.dispose();
         }
     }, []);
 

@@ -63,7 +63,9 @@ export function layoutProgram(program: Program): ProgramLayout {
             rect: node.rect,
             type: node.type,
             fillStyle: '',
-            params: {}
+            params: {
+                name: node.name,
+            }
         });
     })
     return result;

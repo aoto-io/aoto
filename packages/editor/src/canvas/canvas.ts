@@ -1,6 +1,8 @@
 import { FootprintLayoutEnum, type FootprintLayoutType } from "./layout/footprint";
 import { layoutProgram, type DrawObject, type Program } from "./layout/program";
 
+export const NODE_SURROUND = 0.1;
+
 export class ProgramCanvas {
     private canvas: HTMLCanvasElement;
     private container: HTMLElement;
@@ -29,6 +31,27 @@ export class ProgramCanvas {
     private bindEvents() {
         this.canvas.addEventListener('wheel', this.onWheel);
         this.canvas.addEventListener('contextmenu', this.onContextMenu);
+        this.canvas.addEventListener('mousemove', this.onMouseMove);
+    }
+
+    private onMouseMove = (e: MouseEvent) => {
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const world = this.screenToWorld(mouseX, mouseY);
+        if (this.findNode(world)) {
+            this.canvas.style.cursor = 'pointer'
+        } else {
+            this.canvas.style.cursor = 'default'
+        }
+    }
+
+    private findNode(world: { x: number, y: number }) {
+        return this.program.nodes.find((node) => {
+            const { x, y, w, h } = node.rect;
+            const sur = NODE_SURROUND;
+            return world.x >= x - sur && world.x <= x + w + sur * 2 && world.y >= y - sur && world.y <= y + h + sur * 2;
+        });
     }
 
     private onContextMenu = (e: PointerEvent) => {
@@ -41,12 +64,10 @@ export class ProgramCanvas {
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        console.log({ mouseX, mouseY, rect })
         if (e.ctrlKey || e.metaKey) {
             const world = this.screenToWorld(mouseX, mouseY);
             const scaleRatio = 0.5;
             const newScale = this.scale - e.deltaY * scaleRatio;
-            console.log({newScale})
             const clampedScale = Math.max(5, Math.min(newScale, 60));
             this.scale = clampedScale;
             this.viewport.w = this.size.width / this.scale;
@@ -72,8 +93,8 @@ export class ProgramCanvas {
         this.ctx.clearRect(0, 0, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
         this.ctx.scale(this.scale * this.dpr, this.scale * this.dpr);
         this.drawBackground();
-        this.drawProgram();
         this.drawGridLines();
+        this.drawProgram();
         this.ctx.restore();
     }
 
@@ -87,12 +108,11 @@ export class ProgramCanvas {
     private drawProgram() {
         this.ctx.save()
         const layout = layoutProgram(this.program);
-        console.log(layout)
         layout.objects.forEach((object) => {
             if (object.type === 'footprint') {
                 this.drawFootprint(object);
-            } else if (object.type === '') {
-                // something else 
+            } else {
+                this.drawProgramNode(object);
             }
         });
         this.ctx.restore();
@@ -158,9 +178,42 @@ export class ProgramCanvas {
         }
     }
 
-    private worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
-        const screenX = (worldX - this.viewport.x) * this.scale;
-        const screenY = (worldY - this.viewport.y) * this.scale;
+    private drawProgramNode(object: DrawObject) {
+        const { x, y, w, h } = object.rect;
+        const nodePos = this.worldToScreen(x, y);
+        this.ctx.save();
+        this.ctx.strokeStyle = '#CCC';
+        this.ctx.fillStyle = '#FFF';
+        this.ctx.lineWidth = 0.12;
+        this.ctx.beginPath();
+        this.ctx.roundRect(
+            nodePos.x - NODE_SURROUND, 
+            nodePos.y - NODE_SURROUND, 
+            w + NODE_SURROUND * 2, 
+            h + NODE_SURROUND * 2, 
+            0.25
+        );
+        this.ctx.stroke();
+        this.ctx.fill();
+        this.ctx.fillStyle = '#000';
+        const textPos = this.worldToScreen(x + w / 2, y + h);
+        this.drawText(textPos.x, textPos.y, object.params.name, 0.3);
+        this.ctx.restore();
+    }
+
+    private drawText(x: number, y: number, text: string, linePadding = 0) {
+        this.ctx.save();
+        const lineHeight = 0.5 ;
+        this.ctx.font = `${lineHeight}px Arial`
+        const { width } = this.ctx.measureText(text);
+        this.ctx.fillText(text, x - width / 2, y + lineHeight + linePadding);
+        this.ctx.restore();
+    }
+
+    private worldToScreen(worldX: number, worldY: number, hasScale = true): { x: number; y: number } {
+        const scale = hasScale ? 1 : this.scale;
+        const screenX = (worldX - this.viewport.x) * scale;
+        const screenY = (worldY - this.viewport.y) * scale;
         return { x: screenX, y: screenY };
     }
 
