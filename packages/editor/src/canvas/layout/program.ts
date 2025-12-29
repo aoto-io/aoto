@@ -34,15 +34,30 @@ export interface DrawObject {
     rect: {x: number; y: number; w: number; h: number;};
     type: string;
     fillStyle: string;
+    selected: boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     params: Record<string, any>;
+}
+
+export interface ProgramObject {
+    id: string;
+}
+
+export interface Selection {
+    objects: ProgramObject[];
 }
 
 export interface ProgramLayout {
     objects: DrawObject[]
 }
 
-export function layoutProgram(program: Program): ProgramLayout {
+export function isInSelection(selection: Selection, id: string) {
+    return Boolean(selection.objects.find((item) => {
+        return item.id === id;
+    }));
+}
+
+export function layoutProgram(program: Program, selection: Selection): ProgramLayout {
     const result: ProgramLayout = { objects: [] }
     layoutProgramFootprints(program).forEach((item) => {
         result.objects.push({
@@ -53,6 +68,7 @@ export function layoutProgram(program: Program): ProgramLayout {
             },
             fillStyle: item.color,
             type: 'footprint',
+            selected: isInSelection(selection, item.id),
             params: {
                 showType: item.type
             },
@@ -63,6 +79,7 @@ export function layoutProgram(program: Program): ProgramLayout {
             rect: node.rect,
             type: node.type,
             fillStyle: '',
+            selected: isInSelection(selection, node.id),
             params: {
                 name: node.name,
             }

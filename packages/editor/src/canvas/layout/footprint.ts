@@ -1,6 +1,7 @@
 import type { NodePoint, Program, ProgramNode } from "./program";
 
 export interface FootPrint {
+    id: string;
     /**
      * 不同颜色的连线不互相冲突
      */
@@ -29,6 +30,7 @@ export const FootprintLayoutEnum = {
 export type FootprintLayoutType = keyof typeof FootprintLayoutEnum;
 
 export interface FootPrintLayout {
+  id: string;
   type: FootprintLayoutType;
   color: string;
   rect: { x: number; y: number };
@@ -93,7 +95,8 @@ export function layoutFootprints(footprints: FootPrint[]) {
     result.push({
       type: getFootprintType(up, down, left, right) as FootprintLayoutType,
       color: fp.color,
-      rect: fp.rect
+      rect: fp.rect,
+      id: fp.id,
     });
   });
   return result;
@@ -110,7 +113,8 @@ export function layoutProgramFootprints(program: Program) {
         key: '',
         color: '',
         rect: rect,
-        isPoint: true
+        isPoint: true,
+        id: node.id,
       })
     })
   })

@@ -14,23 +14,26 @@ export function Canvas() {
                     name: '执行代码',
                     icon: '',
                     points: [],
-                    rect: { x: -4, y: -3, w: 3, h: 4 }
+                    rect: { x: -4, y: -4, w: 3, h: 4 }
                 }
             ],
             footprints: [
                 {
+                    id: 'f1',
                     key: '',
                     color: '#888',
                     isPoint: false,
                     rect: {x: 0, y: 0}
                 },
                 {
+                    id: 'f2',
                     key: '',
                     color: '#888',
                     isPoint: false,
                     rect: {x: 0, y: 1}
                 },
                 {
+                    id: 'f3',
                     key: '',
                     color: '#888',
                     isPoint: false,

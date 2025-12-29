@@ -1,5 +1,5 @@
 import { FootprintLayoutEnum, type FootprintLayoutType } from "./layout/footprint";
-import { layoutProgram, type DrawObject, type Program } from "./layout/program";
+import { layoutProgram, type DrawObject, type Program, type Selection } from "./layout/program";
 
 export const NODE_SURROUND = 0.1;
 
@@ -7,6 +7,7 @@ export interface Dragging {
     id: string;
     pos: { x: number; y: number; };
 }
+
 
 export class ProgramCanvas {
     private canvas: HTMLCanvasElement;
@@ -18,6 +19,7 @@ export class ProgramCanvas {
     private program: Program;
     private size = { width: 0, height: 0 };
     private viewport = { x: 0, y: 0, w: 0, h: 0 };
+    private selection: Selection = { objects: [] };
     private dragging: Dragging | false = false;
 
     constructor(container: HTMLElement) {
@@ -49,10 +51,15 @@ export class ProgramCanvas {
         const world = this.screenToWorld(mouseX, mouseY);
         const node = this.hittestNode(world);
         if (node) {
+            this.selection.objects = [
+                { id: node.id }
+            ]
             this.dragging = { id: node.id, pos: { x: -world.x + node.rect.x, y: -world.y + node.rect.y } };
         } else {
+            this.selection.objects = []
             this.dragging = false;
         }
+        this.redraw();
     }
 
     private onMouseUp = () => {
@@ -146,7 +153,7 @@ export class ProgramCanvas {
     
     private drawProgram() {
         this.ctx.save()
-        const layout = layoutProgram(this.program);
+        const layout = layoutProgram(this.program, this.selection);
         layout.objects.forEach((object) => {
             if (object.type === 'footprint') {
                 this.drawFootprint(object);
@@ -156,6 +163,7 @@ export class ProgramCanvas {
         });
         this.ctx.restore();
     }
+
     private drawGridLines() {
         const fromX = Math.floor(this.viewport.x) - this.viewport.x;
         const toX = Math.floor(this.viewport.x + this.viewport.w) - this.viewport.x;
@@ -227,25 +235,62 @@ export class ProgramCanvas {
     }
 
     private drawProgramNode(object: DrawObject) {
-        const { x, y, w, h } = object.rect;
-        const nodePos = this.worldToScreen(x, y);
+        const nodePos = this.worldToScreen(object.rect.x, object.rect.y);
+        const x = nodePos.x - NODE_SURROUND;
+        const y = nodePos.y - NODE_SURROUND;
+        const w = object.rect.w + NODE_SURROUND * 2;
+        const h = object.rect.h + NODE_SURROUND * 2;
+
         this.ctx.save();
-        this.ctx.strokeStyle = '#CCC';
+        this.ctx.strokeStyle = '#BBB';
         this.ctx.fillStyle = '#FFF';
-        this.ctx.lineWidth = 0.25;
+        const borderWidth = 0.1;
+        const borderRadius = 0.25;
+        this.ctx.lineWidth = borderWidth;
         this.ctx.beginPath();
         this.ctx.roundRect(
-            nodePos.x - NODE_SURROUND, 
-            nodePos.y - NODE_SURROUND, 
-            w + NODE_SURROUND * 2, 
-            h + NODE_SURROUND * 2, 
-            0.25
+            x, 
+            y, 
+            w, 
+            h, 
+            borderRadius
         );
         this.ctx.stroke();
         this.ctx.fill();
         this.ctx.fillStyle = '#000';
-        const textPos = this.worldToScreen(x + w / 2, y + h);
-        this.drawText(textPos.x, textPos.y, object.params.name, 0.3);
+        const textPos = this.worldToScreen(object.rect.x + w / 2, object.rect.y + h);
+        this.drawText(textPos.x, textPos.y, object.params.name, 0.5);
+        if (object.selected) {
+            // shadow
+            this.ctx.globalAlpha = 0.3;
+            this.ctx.strokeStyle = '#b7ccdaff'            
+            this.ctx.beginPath();
+            const lineWidth = 0.3;
+            this.ctx.lineWidth = lineWidth;
+            this.ctx.roundRect(
+                x - lineWidth / 2, 
+                y - lineWidth / 2, 
+                w + lineWidth,
+                h + lineWidth, 
+                borderWidth / 2 + borderRadius
+            );
+            this.ctx.stroke();
+
+            // outline
+            this.ctx.globalAlpha = 0.1;
+            this.ctx.strokeStyle = '#000'
+            this.ctx.beginPath();
+            const outLineWidth = 0.02;
+            this.ctx.lineWidth = outLineWidth;
+            this.ctx.roundRect(
+                x - borderWidth / 2, 
+                y - borderWidth / 2, 
+                w + borderWidth,
+                h + borderWidth, 
+                borderWidth / 2 + borderRadius
+            );
+            this.ctx.stroke();
+        }
         this.ctx.restore();
     }
 
