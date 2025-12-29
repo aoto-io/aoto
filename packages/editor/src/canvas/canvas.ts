@@ -71,11 +71,19 @@ export class ProgramCanvas {
         this.ctx.save()
         this.ctx.clearRect(0, 0, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
         this.ctx.scale(this.scale * this.dpr, this.scale * this.dpr);
+        this.drawBackground();
         this.drawProgram();
         this.drawGridLines();
         this.ctx.restore();
     }
 
+    private drawBackground() {
+        this.ctx.save();
+        this.ctx.fillStyle = '#f5f5f5';
+        this.ctx.fillRect(0, 0, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+        this.ctx.restore();
+    }
+    
     private drawProgram() {
         this.ctx.save()
         const layout = layoutProgram(this.program);
@@ -96,11 +104,11 @@ export class ProgramCanvas {
         const toY = Math.floor(this.viewport.y + this.viewport.h) - this.viewport.y;
 
         this.ctx.save();
-        const point = 0.1;
+        const point = 0.1 / this.dpr;
         this.ctx.setLineDash([0, 1])
         this.ctx.lineWidth = point;
         this.ctx.lineCap = this.scale > 20 ? 'round' : 'square';
-        this.ctx.strokeStyle = '#4d4d4d88';
+        this.ctx.strokeStyle = '#666';
         for (let x = fromX; x <= toX; x++) {
             this.ctx.beginPath();
             this.ctx.moveTo(x, fromY);
