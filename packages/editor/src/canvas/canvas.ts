@@ -3,6 +3,11 @@ import { layoutProgram, type DrawObject, type Program } from "./layout/program";
 
 export const NODE_SURROUND = 0.1;
 
+export interface Dragging {
+    id: string;
+    pos: { x: number; y: number; };
+}
+
 export class ProgramCanvas {
     private canvas: HTMLCanvasElement;
     private container: HTMLElement;
@@ -13,6 +18,7 @@ export class ProgramCanvas {
     private program: Program;
     private size = { width: 0, height: 0 };
     private viewport = { x: 0, y: 0, w: 0, h: 0 };
+    private dragging: Dragging | false = false;
 
     constructor(container: HTMLElement) {
         this.dpr = window.devicePixelRatio;
@@ -31,7 +37,26 @@ export class ProgramCanvas {
     private bindEvents() {
         this.canvas.addEventListener('wheel', this.onWheel);
         this.canvas.addEventListener('contextmenu', this.onContextMenu);
+        this.canvas.addEventListener('mousedown', this.onMouseDown);
         this.canvas.addEventListener('mousemove', this.onMouseMove);
+        this.canvas.addEventListener('mouseup', this.onMouseUp);
+    }
+
+    private onMouseDown = (e: MouseEvent) => {
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const world = this.screenToWorld(mouseX, mouseY);
+        const node = this.hittestNode(world);
+        if (node) {
+            this.dragging = { id: node.id, pos: { x: -world.x + node.rect.x, y: -world.y + node.rect.y } };
+        } else {
+            this.dragging = false;
+        }
+    }
+
+    private onMouseUp = () => {
+        this.dragging = false;
     }
 
     private onMouseMove = (e: MouseEvent) => {
@@ -39,14 +64,25 @@ export class ProgramCanvas {
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
         const world = this.screenToWorld(mouseX, mouseY);
-        if (this.findNode(world)) {
+        if (this.dragging) {
+            const node = this.findNode(this.dragging.id);
+            node.rect.x = Math.round(this.dragging.pos.x + world.x);
+            node.rect.y = Math.round(this.dragging.pos.y + world.y);
+            this.redraw();
+            return;
+        }
+        if (this.hittestNode(world)) {
             this.canvas.style.cursor = 'pointer'
         } else {
             this.canvas.style.cursor = 'default'
         }
     }
 
-    private findNode(world: { x: number, y: number }) {
+    private findNode(id: string) {
+        return this.program.nodes.find((item) => item.id === id);
+    }
+
+    private hittestNode(world: { x: number, y: number }) {
         return this.program.nodes.find((node) => {
             const { x, y, w, h } = node.rect;
             const sur = NODE_SURROUND;
@@ -86,6 +122,9 @@ export class ProgramCanvas {
         this.container.removeChild(this.canvas);
         this.canvas.removeEventListener('wheel', this.onWheel);
         this.canvas.removeEventListener('contextmenu', this.onContextMenu);
+        this.canvas.removeEventListener('mousedown', this.onMouseDown);
+        this.canvas.removeEventListener('mousemove', this.onMouseMove);
+        this.canvas.removeEventListener('mouseup', this.onMouseUp);
     }
 
     private redraw() {
