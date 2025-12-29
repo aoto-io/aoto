@@ -1,4 +1,4 @@
-import { layoutProgramFootprints, type FootPrint } from "./footprint";
+export const NODE_SURROUND = 0.1;
 
 export interface NodePoint {
     type: 'input' | 'output'
@@ -27,16 +27,21 @@ export interface ProgramNode {
 
 export interface Program {
     nodes: ProgramNode[],
-    footprints: FootPrint[],
+    // connections: [],
 }
 
-export interface DrawObject {
+export interface PointLayout {
+    x: number;
+    y: number;
+    name: string;
+}
+
+export interface DrawNode {
     rect: {x: number; y: number; w: number; h: number;};
-    type: string;
+    points: PointLayout[];
     fillStyle: string;
     selected: boolean;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    params: Record<string, any>;
+    name: string;
 }
 
 export interface ProgramObject {
@@ -44,45 +49,57 @@ export interface ProgramObject {
 }
 
 export interface Selection {
-    objects: ProgramObject[];
+    nodes: ProgramObject[];
 }
 
 export interface ProgramLayout {
-    objects: DrawObject[]
+    nodes: DrawNode[]
 }
 
 export function isInSelection(selection: Selection, id: string) {
-    return Boolean(selection.objects.find((item) => {
+    return Boolean(selection.nodes.find((item) => {
         return item.id === id;
     }));
 }
 
 export function layoutProgram(program: Program, selection: Selection): ProgramLayout {
-    const result: ProgramLayout = { objects: [] }
-    layoutProgramFootprints(program).forEach((item) => {
-        result.objects.push({
-            rect: {
-                ...item.rect,
-                w: 1,
-                h: 1,
-            },
-            fillStyle: item.color,
-            type: 'footprint',
-            selected: isInSelection(selection, item.id),
-            params: {
-                showType: item.type
-            },
-        })
-    });
+    const result: ProgramLayout = { nodes: [] }
     program.nodes.forEach((node) => {
-        result.objects.push({
+        result.nodes.push({
             rect: node.rect,
-            type: node.type,
             fillStyle: '',
             selected: isInSelection(selection, node.id),
-            params: {
-                name: node.name,
-            }
+            name: node.name,
+            points: node.points.map((item) => {
+                const half = 0.5;
+                const side = item.position.side;
+                if (side === 'top') {
+                    return {
+                        x: node.rect.x + item.position.x + half,
+                        y: node.rect.y - NODE_SURROUND,
+                        name: node.name
+                    }
+                } else if (side === 'right') {
+                    return {
+                        x: node.rect.x + node.rect.w + NODE_SURROUND,
+                        y: node.rect.y + item.position.x + half,
+                        name: node.name
+                    }
+                } else if (side === 'bottom') {
+                    return {
+                        x: node.rect.x + item.position.x + half,
+                        y: node.rect.y + node.rect.h + NODE_SURROUND,
+                        name: node.name
+                    }
+                } else {
+                    return {
+                        x: node.rect.x - NODE_SURROUND,
+                        y: node.rect.y + item.position.x + half,
+                        name: node.name
+                    }
+                }
+
+            }),
         });
     })
     return result;

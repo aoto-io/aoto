@@ -1,13 +1,11 @@
-import { FootprintLayoutEnum, type FootprintLayoutType } from "./layout/footprint";
-import { layoutProgram, type DrawObject, type Program, type Selection } from "./layout/program";
-
-export const NODE_SURROUND = 0.1;
+import { layoutProgram, NODE_SURROUND, type DrawNode, type Program, type Selection } from "./layout/program";
 
 export interface Dragging {
     id: string;
     pos: { x: number; y: number; };
 }
 
+export const BORDER_COLOR = '#BBB';
 
 export class ProgramCanvas {
     private canvas: HTMLCanvasElement;
@@ -19,7 +17,7 @@ export class ProgramCanvas {
     private program: Program;
     private size = { width: 0, height: 0 };
     private viewport = { x: 0, y: 0, w: 0, h: 0 };
-    private selection: Selection = { objects: [] };
+    private selection: Selection = { nodes: [] };
     private dragging: Dragging | false = false;
 
     constructor(container: HTMLElement) {
@@ -51,12 +49,12 @@ export class ProgramCanvas {
         const world = this.screenToWorld(mouseX, mouseY);
         const node = this.hittestNode(world);
         if (node) {
-            this.selection.objects = [
+            this.selection.nodes = [
                 { id: node.id }
             ]
             this.dragging = { id: node.id, pos: { x: -world.x + node.rect.x, y: -world.y + node.rect.y } };
         } else {
-            this.selection.objects = []
+            this.selection.nodes = []
             this.dragging = false;
         }
         this.redraw();
@@ -154,12 +152,8 @@ export class ProgramCanvas {
     private drawProgram() {
         this.ctx.save()
         const layout = layoutProgram(this.program, this.selection);
-        layout.objects.forEach((object) => {
-            if (object.type === 'footprint') {
-                this.drawFootprint(object);
-            } else {
-                this.drawProgramNode(object);
-            }
+        layout.nodes.forEach((node) => {
+            this.drawProgramNode(node);
         });
         this.ctx.restore();
     }
@@ -206,35 +200,7 @@ export class ProgramCanvas {
         this.redraw();
     }
 
-    private drawFootprint(object: DrawObject) {
-        this.ctx.save();
-        const x = object.rect.x - this.viewport.x;
-        const y = object.rect.y - this.viewport.y;        
-        this.ctx.fillStyle = object.fillStyle;
-        this.ctx.globalAlpha = 0.8;
-        
-        const type = object.params.showType as FootprintLayoutType;
-        const size = 0.2;
-        const half = size / 2;
-        if (type === FootprintLayoutEnum.POINT) {
-            this.ctx.fillRect(x + 0.5 - half, y + 0.5 + half, size, size);
-        } else if (type === FootprintLayoutEnum.LEFT_RIGHT) {
-            this.ctx.fillRect(x, y + 0.5 - half, 1, size);
-        } else if (type === FootprintLayoutEnum.TOP_DOWN) {
-            this.ctx.fillRect(x + 0.5 - half, y, size, 1);
-        } else if (type === FootprintLayoutEnum.TOP_RIGHT) {
-            this.ctx.fillRect(x + 0.5 - half, y, size, 0.5 + half - size);
-            this.ctx.fillRect(x + 0.5 - half + size, y + 0.5 - half, 0.5 + half - size, size);
-            this.ctx.beginPath();
-            this.ctx.arc(x + 0.5 + half, y + 0.5 - half, size, Math.PI / 2,  Math.PI);
-            this.ctx.lineTo(x + 0.5 + half, y + 0.5 - half)
-            this.ctx.fill();
-
-        }
-        this.ctx.restore();
-    }
-
-    private drawProgramNode(object: DrawObject) {
+    private drawProgramNode(object: DrawNode) {
         const nodePos = this.worldToScreen(object.rect.x, object.rect.y);
         const x = nodePos.x - NODE_SURROUND;
         const y = nodePos.y - NODE_SURROUND;
@@ -242,7 +208,7 @@ export class ProgramCanvas {
         const h = object.rect.h + NODE_SURROUND * 2;
 
         this.ctx.save();
-        this.ctx.strokeStyle = '#BBB';
+        this.ctx.strokeStyle = BORDER_COLOR;
         this.ctx.fillStyle = '#FFF';
         const borderWidth = 0.1;
         const borderRadius = 0.25;
@@ -259,7 +225,7 @@ export class ProgramCanvas {
         this.ctx.fill();
         this.ctx.fillStyle = '#000';
         const textPos = this.worldToScreen(object.rect.x + object.rect.w / 2, object.rect.y + object.rect.h);
-        this.drawText(textPos.x, textPos.y, object.params.name, 0.35);
+        this.drawText(textPos.x, textPos.y, object.name, 0.35);
         if (object.selected) {
             // shadow
             this.ctx.globalAlpha = 0.3;
@@ -290,15 +256,29 @@ export class ProgramCanvas {
                 borderWidth / 2 + borderRadius
             );
             this.ctx.stroke();
+            this.ctx.globalAlpha = 1;
         }
+
+        for (const point of object.points) {
+            const screen = this.worldToScreen(point.x, point.y)
+            this.ctx.strokeStyle = BORDER_COLOR;
+            this.ctx.fillStyle = '#FFF';
+            this.ctx.lineWidth = 0.1;
+            this.ctx.beginPath();
+            this.ctx.arc(screen.x, screen.y, 0.25, 0, 2 * Math.PI);
+            this.ctx.stroke();
+            this.ctx.fill();
+        }
+        
         this.ctx.restore();
     }
 
     private drawText(x: number, y: number, text: string, linePadding = 0) {
         this.ctx.save();
-        const lineHeight = 0.5 ;
+        const lineHeight = 0.5;
         this.ctx.font = `${lineHeight}px Arial`
         const { width } = this.ctx.measureText(text);
+        this.ctx.fillStyle = '#333';
         this.ctx.fillText(text, x - width / 2, y + lineHeight + linePadding);
         this.ctx.restore();
     }

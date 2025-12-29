@@ -13,33 +13,30 @@ export function Canvas() {
                     type: 'Code',
                     name: '执行代码',
                     icon: '',
-                    points: [],
+                    points: [
+                        {
+                            type: 'input',
+                            key: '',
+                            name: '',
+                            position: {
+                                side: 'right',
+                                x: 0
+                            }
+                        },
+                        {
+                            type: 'input',
+                            key: '',
+                            name: '',
+                            position: {
+                                side: 'right',
+                                x: 1
+                            }
+                        },
+                        
+                    ],
                     rect: { x: -4, y: -4, w: 3, h: 4 }
                 }
-            ],
-            footprints: [
-                {
-                    id: 'f1',
-                    key: '',
-                    color: '#888',
-                    isPoint: false,
-                    rect: {x: 0, y: 0}
-                },
-                {
-                    id: 'f2',
-                    key: '',
-                    color: '#888',
-                    isPoint: false,
-                    rect: {x: 0, y: 1}
-                },
-                {
-                    id: 'f3',
-                    key: '',
-                    color: '#888',
-                    isPoint: false,
-                    rect: {x: 1, y: 1}
-                }
-            ],
+            ]
         })
         return () => {
             canvas.dispose();
