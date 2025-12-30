@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react"
-import { ProgramCanvas } from "./canvas";
+import { Editor } from "./editor";
 
 export function Canvas() {
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const canvas = new ProgramCanvas(containerRef.current);
+        const canvas = new Editor(containerRef.current);
         canvas.update({
             nodes: [
                 {
@@ -60,7 +60,14 @@ export function Canvas() {
                 },
                 
             ],
-            connections: []
+            connections: [
+                {
+                    fromNode: '执行代码',
+                    fromPoint: 'event1',
+                    toNode: '执行代码2',
+                    toPoint: 'event2'
+                }
+            ]
         })
         return () => {
             canvas.dispose();

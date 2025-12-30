@@ -1,14 +1,13 @@
 import { 
     layoutPoint,
-    layoutPoints, 
-    layoutProgram, 
     NODE_SURROUND, 
+    ProgramLayout, 
     type DrawNode, 
     type PointLayout, 
     type Program, 
     type ProgramNode, 
     type Selection 
-} from "./layout/program";
+} from "./layout";
 
 export interface Dragging {
     type: 'node' | 'point',
@@ -19,7 +18,7 @@ export interface Dragging {
 
 export const BORDER_COLOR = '#BBB';
 
-export class ProgramCanvas {
+export class Editor {
     private canvas: HTMLCanvasElement;
     private container: HTMLElement;
     private ctx: CanvasRenderingContext2D;
@@ -32,6 +31,7 @@ export class ProgramCanvas {
     private selection: Selection = { nodes: [] };
     private dragging: Dragging | false = false;
     private connectTo: { x: number; y: number, point?: PointLayout };
+    private layout: ProgramLayout;
 
     constructor(container: HTMLElement) {
         this.dpr = window.devicePixelRatio;
@@ -44,6 +44,7 @@ export class ProgramCanvas {
         })
         this.observer.observe(this.container);
         this.container.appendChild(this.canvas);
+        this.layout = new ProgramLayout(this.ctx);
         this.bindEvents();
     }
 
@@ -59,8 +60,8 @@ export class ProgramCanvas {
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
-        const world = this.screenToWorld({ x: mouseX, y: mouseY });
-        const hittest = this.hittest(world);
+        const world = this.layout.screenToWorld({ x: mouseX, y: mouseY });
+        const hittest = this.layout.hittest(world);
         if (!hittest) {
             this.selection.nodes = []
             this.dragging = false;
@@ -102,7 +103,7 @@ export class ProgramCanvas {
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
-        const world = this.screenToWorld({ x: mouseX, y: mouseY });
+        const world = this.layout.screenToWorld({ x: mouseX, y: mouseY });
         if (this.dragging) {
             const { type } = this.dragging;
             if (type === 'node') {
@@ -110,7 +111,7 @@ export class ProgramCanvas {
                 node.rect.x = Math.round(this.dragging.pos.x + world.x);
                 node.rect.y = Math.round(this.dragging.pos.y + world.y);
             } else if (type === 'point') {
-                const hittest = this.hittest(world);
+                const hittest = this.layout.hittest(world);
                 const isPoint = 
                     hittest && 
                     hittest.type == 'point' && !(
@@ -131,41 +132,11 @@ export class ProgramCanvas {
             this.redraw();
             return;
         }
-        const hittest = this.hittest(world);
+        const hittest = this.layout.hittest(world);
         if (hittest) {
             this.canvas.style.cursor = hittest.type === 'point' ? 'crosshair' : 'pointer'
         } else {
             this.canvas.style.cursor = 'default'
-        }
-    }
-
-    private hittest(world: { x: number, y: number }) {
-        for (const node of this.program.nodes) {
-            const { x, y, w, h } = node.rect;
-            const sur = NODE_SURROUND;
-            const points = layoutPoints(node);
-            for (const point of points) {
-                if (
-                    world.x >= point.x - point.radius && 
-                    world.x <= point.x + point.radius &&
-                    world.y >= point.y - point.radius &&
-                    world.y <= point.y + point.radius
-                ) {
-                    return {
-                        type: 'point',
-                        node,
-                        point
-                    }
-                }
-            }
-            
-            const inNode = world.x >= x - sur && world.x <= x + w + sur * 2 && world.y >= y - sur && world.y <= y + h + sur * 2;
-            if (inNode) {
-                return { 
-                    type: 'node',
-                    node
-                }
-            }
         }
     }
 
@@ -180,7 +151,7 @@ export class ProgramCanvas {
         const mouseY = e.clientY - rect.top;
 
         if (e.ctrlKey || e.metaKey) {
-            const world = this.screenToWorld({ x: mouseX, y: mouseY });
+            const world = this.layout.screenToWorld({ x: mouseX, y: mouseY });
             const scaleRatio = 0.5;
             const newScale = this.scale - e.deltaY * scaleRatio;
             const clampedScale = Math.max(5, Math.min(newScale, 60));
@@ -219,33 +190,20 @@ export class ProgramCanvas {
 
     private drawConnections() {
         if (this.dragging && this.connectTo) {
-            const from = this.worldToScreen(this.dragging.pos);
-            const to = this.worldToScreen(this.connectTo);
+            const from = this.layout.worldToScreen(this.dragging.pos);
+            const to = this.layout.worldToScreen(this.connectTo);
             this.drawConnection(from, to)    
         }
         for (const connection of this.program.connections) {
-            console.log(connection);
-            const from = this.findPointByName(connection.fromNode, connection.fromPoint);
-            const to = this.findPointByName(connection.toNode, connection.toPoint);
+            const from = this.layout.findPointByName(connection.fromNode, connection.fromPoint);
+            const to = this.layout.findPointByName(connection.toNode, connection.toPoint);
             if (!from || !to) {
                 continue;
             }
-            const fromPoint = this.worldToScreen(layoutPoint(from.point, from.node).connect);
-            const toPoint = this.worldToScreen(layoutPoint(to.point, to.node).connect);
+            const fromPoint = this.layout.worldToScreen(layoutPoint(from.point, from.node).connect);
+            const toPoint = this.layout.worldToScreen(layoutPoint(to.point, to.node).connect);
             this.drawConnection(fromPoint, toPoint);
         }
-    }
-
-    private findPointByName(node: string, point: string) {
-        const findNode = this.program.nodes.find((item) => item.name === node);
-        if (!findNode) {
-            return null;
-        }
-        const findPoint = findNode.points.find((item) => item.name === point);
-        if (!findPoint) {
-            return null;
-        }
-        return { node: findNode, point: findPoint };
     }
 
     private drawConnection(from: { x: number, y: number }, to: { x: number, y: number }) {
@@ -281,7 +239,7 @@ export class ProgramCanvas {
     
     private drawProgram() {
         this.ctx.save()
-        const layout = layoutProgram(this.program, this.selection);
+        const layout = this.layout.layout(this.program, this.selection, this.scale, this.viewport);
         layout.nodes.forEach((node) => {
             this.drawProgramNode(node);
         });
@@ -331,7 +289,7 @@ export class ProgramCanvas {
     }
 
     private drawProgramNode(object: DrawNode) {
-        const nodePos = this.worldToScreen(object.rect);
+        const nodePos = this.layout.worldToScreen(object.rect);
         const x = nodePos.x - NODE_SURROUND;
         const y = nodePos.y - NODE_SURROUND;
         const w = object.rect.w + NODE_SURROUND * 2;
@@ -354,7 +312,7 @@ export class ProgramCanvas {
         this.ctx.stroke();
         this.ctx.fill();
         this.ctx.fillStyle = '#000';
-        const textPos = this.worldToScreen({ x: object.rect.x + object.rect.w / 2, y: object.rect.y + object.rect.h });
+        const textPos = this.layout.worldToScreen({ x: object.rect.x + object.rect.w / 2, y: object.rect.y + object.rect.h });
         this.drawText(textPos.x, textPos.y, object.name, 0.35);
         if (object.selected) {
             // shadow
@@ -390,7 +348,7 @@ export class ProgramCanvas {
         }
 
         for (const point of object.points) {
-            const screen = this.worldToScreen(point)
+            const screen = this.layout.worldToScreen(point)
             this.ctx.strokeStyle = BORDER_COLOR;
             this.ctx.fillStyle = '#FFF';
             this.ctx.lineWidth = point.borderWidth;
@@ -413,16 +371,4 @@ export class ProgramCanvas {
         this.ctx.restore();
     }
 
-    private worldToScreen(world: { x: number; y: number }, hasScale = true): { x: number; y: number } {
-        const scale = hasScale ? 1 : this.scale;
-        const screenX = (world.x - this.viewport.x) * scale;
-        const screenY = (world.y - this.viewport.y) * scale;
-        return { x: screenX, y: screenY };
-    }
-
-    private screenToWorld(screen: {x: number; y: number}): { x: number; y: number } {
-        const worldX = this.viewport.x + screen.x / this.scale;
-        const worldY = this.viewport.y + screen.y / this.scale;
-        return { x: worldX, y: worldY };
-    }
 }
