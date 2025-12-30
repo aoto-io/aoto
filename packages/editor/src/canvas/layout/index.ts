@@ -27,7 +27,7 @@ export interface NodeConnection {
     fromNode: string;
     fromPoint: string;
     toNode: string;
-    toPoint: string;    
+    toPoint: string;
 }
 
 export interface Program {
@@ -54,6 +54,8 @@ export interface DrawNode {
 }
 
 export interface DrawConnection {
+    id: string;
+    active: boolean;
     fromPoint: { x: number; y: number };
     toPoint: { x: number; y: number };
     path: Path2D;
@@ -162,9 +164,14 @@ export class ProgramLayout {
     private result: ProgramLayoutResult;
     private scale: number;
     private ctx: CanvasRenderingContext2D; // for connections hittest
+    private activeConnections = new Map<string, boolean>();
 
     constructor(ctx: CanvasRenderingContext2D) {
         this.ctx = ctx;
+    }
+
+    getResult() {
+        return this.result;
     }
 
     layout(
@@ -203,7 +210,8 @@ export class ProgramLayout {
             const path = new Path2D();
             path.moveTo(fromPoint.x, fromPoint.y);
             path.bezierCurveTo(xCtrl, fromPoint.y, xCtrl, toPoint.y, toPoint.x, toPoint.y);
-            this.result.connections.push({ fromPoint, toPoint, path });
+            const id = `${connection.fromNode}:${connection.fromPoint}:${connection.toNode}:${connection.toPoint}`;
+            this.result.connections.push({ id, fromPoint, toPoint, path, active: this.activeConnections.has(id) });
         }
     }
 
@@ -230,8 +238,20 @@ export class ProgramLayout {
         const worldX = this.viewport.x + screen.x / this.scale;
         const worldY = this.viewport.y + screen.y / this.scale;
         return { x: worldX, y: worldY };
-    }    
+    }
 
+    activeConnection(id: string, active: boolean) {
+        const connection = this.result.connections.find((item) => {
+            return item.id === id;
+        })
+        if (connection) {
+            if (active) {
+                this.activeConnections.set(id, active);
+            } else {
+                this.activeConnections.delete(id);
+            }
+        }
+    }
 
     hittest(world: { x: number, y: number }) {
         for (const node of this.program.nodes) {
@@ -262,10 +282,13 @@ export class ProgramLayout {
             }
         }
         const screen = this.worldToScreen(world);
+        this.ctx.beginPath();
+        this.ctx.lineWidth = 1;
         for (const connection of this.result.connections) {
             if (this.ctx.isPointInStroke(connection.path, screen.x, screen.y)) {
                 return {
                     type: 'connection',
+                    id: connection.id,
                 }
             }
         }

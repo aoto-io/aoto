@@ -1,5 +1,4 @@
 import { 
-    layoutPoint,
     NODE_SURROUND, 
     ProgramLayout, 
     type DrawNode, 
@@ -32,6 +31,7 @@ export class Editor {
     private dragging: Dragging | false = false;
     private connectTo: { x: number; y: number, point?: PointLayout };
     private layout: ProgramLayout;
+    private activeTimeouts = new Map<string, number>();
 
     constructor(container: HTMLElement) {
         this.dpr = window.devicePixelRatio;
@@ -134,6 +134,19 @@ export class Editor {
         }
         const hittest = this.layout.hittest(world);
         if (hittest) {
+            if (hittest.type === 'connection') {
+                const id = hittest.id;
+                if (this.activeTimeouts.has(id)) {
+                    clearTimeout(this.activeTimeouts.get(id));
+                }
+                this.activeTimeouts.set(id, setTimeout(() => {
+                    this.activeTimeouts.delete(id);
+                    this.layout.activeConnection(id, false);
+                    this.redraw();
+                }, 800));
+                this.layout.activeConnection(id, true);
+                this.redraw();
+            }
             this.canvas.style.cursor = hittest.type === 'point' ? 'crosshair' : 'pointer'
         } else {
             this.canvas.style.cursor = 'default'
@@ -175,6 +188,7 @@ export class Editor {
         this.canvas.removeEventListener('mousedown', this.onMouseDown);
         this.canvas.removeEventListener('mousemove', this.onMouseMove);
         this.canvas.removeEventListener('mouseup', this.onMouseUp);
+        this.activeTimeouts.forEach((timeout) => clearTimeout(timeout));
     }
 
     private redraw() {
@@ -192,25 +206,22 @@ export class Editor {
         if (this.dragging && this.connectTo) {
             const from = this.layout.worldToScreen(this.dragging.pos);
             const to = this.layout.worldToScreen(this.connectTo);
-            this.drawConnection(from, to)    
+            this.drawConnection(from, to, false)
         }
-        for (const connection of this.program.connections) {
-            const from = this.layout.findPointByName(connection.fromNode, connection.fromPoint);
-            const to = this.layout.findPointByName(connection.toNode, connection.toPoint);
-            if (!from || !to) {
-                continue;
-            }
-            const fromPoint = this.layout.worldToScreen(layoutPoint(from.point, from.node).connect);
-            const toPoint = this.layout.worldToScreen(layoutPoint(to.point, to.node).connect);
-            this.drawConnection(fromPoint, toPoint);
+        const result = this.layout.getResult();
+        for (const connection of result.connections) {
+            const { fromPoint, toPoint, active } = connection
+            this.drawConnection(fromPoint, toPoint, active);
         }
     }
 
-    private drawConnection(from: { x: number, y: number }, to: { x: number, y: number }) {
+    private drawConnection(from: { x: number, y: number }, to: { x: number, y: number }, active: boolean) {
+        const color = active ? '#6f6f6f' : '#AAA';
+
         const xCtrl = (from.x + to.x) / 2;
         this.ctx.save();
         this.ctx.lineWidth = 0.1;
-        this.ctx.strokeStyle = '#6f6f6f';
+        this.ctx.strokeStyle = color;
         this.ctx.beginPath();
         this.ctx.moveTo(from.x, from.y);
         this.ctx.bezierCurveTo(xCtrl, from.y, xCtrl, to.y, to.x, to.y);
@@ -221,7 +232,7 @@ export class Editor {
         const triHeight = triWidth / 1.2;
         const xOffset = 0.05;
         const triangleX = to.x + xOffset;
-        this.ctx.fillStyle = '#6f6f6f';
+        this.ctx.fillStyle = color;
         this.ctx.moveTo(triangleX - triWidth, to.y - triHeight);
         this.ctx.lineTo(triangleX - triWidth, to.y + triHeight);
         this.ctx.lineTo(triangleX, to.y);
