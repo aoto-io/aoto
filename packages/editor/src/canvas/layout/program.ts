@@ -33,6 +33,7 @@ export interface Program {
 export interface PointLayout {
     x: number;
     y: number;
+    radius: number;
     name: string;
 }
 
@@ -62,6 +63,43 @@ export function isInSelection(selection: Selection, id: string) {
     }));
 }
 
+export function layoutPoints(node: ProgramNode) {
+    const radius = 0.25;
+    return node.points.map((item) => {
+        const half = 0.5;
+        const side = item.position.side;
+        if (side === 'top') {
+            return {
+                x: node.rect.x + item.position.x + half,
+                y: node.rect.y - NODE_SURROUND,
+                name: node.name,
+                radius
+            }
+        } else if (side === 'right') {
+            return {
+                x: node.rect.x + node.rect.w + NODE_SURROUND,
+                y: node.rect.y + item.position.x + half,
+                name: node.name,
+                radius
+            }
+        } else if (side === 'bottom') {
+            return {
+                x: node.rect.x + item.position.x + half,
+                y: node.rect.y + node.rect.h + NODE_SURROUND,
+                name: node.name,
+                radius
+            }
+        } else {
+            return {
+                x: node.rect.x - NODE_SURROUND,
+                y: node.rect.y + item.position.x + half,
+                name: node.name,
+                radius
+            }
+        }
+    })
+}
+
 export function layoutProgram(program: Program, selection: Selection): ProgramLayout {
     const result: ProgramLayout = { nodes: [] }
     program.nodes.forEach((node) => {
@@ -70,36 +108,7 @@ export function layoutProgram(program: Program, selection: Selection): ProgramLa
             fillStyle: '',
             selected: isInSelection(selection, node.id),
             name: node.name,
-            points: node.points.map((item) => {
-                const half = 0.5;
-                const side = item.position.side;
-                if (side === 'top') {
-                    return {
-                        x: node.rect.x + item.position.x + half,
-                        y: node.rect.y - NODE_SURROUND,
-                        name: node.name
-                    }
-                } else if (side === 'right') {
-                    return {
-                        x: node.rect.x + node.rect.w + NODE_SURROUND,
-                        y: node.rect.y + item.position.x + half,
-                        name: node.name
-                    }
-                } else if (side === 'bottom') {
-                    return {
-                        x: node.rect.x + item.position.x + half,
-                        y: node.rect.y + node.rect.h + NODE_SURROUND,
-                        name: node.name
-                    }
-                } else {
-                    return {
-                        x: node.rect.x - NODE_SURROUND,
-                        y: node.rect.y + item.position.x + half,
-                        name: node.name
-                    }
-                }
-
-            }),
+            points: layoutPoints(node),
         });
     })
     return result;

@@ -1,4 +1,4 @@
-import { layoutProgram, NODE_SURROUND, type DrawNode, type Program, type Selection } from "./layout/program";
+import { layoutPoints, layoutProgram, NODE_SURROUND, type DrawNode, type Program, type Selection } from "./layout/program";
 
 export interface Dragging {
     id: string;
@@ -47,15 +47,21 @@ export class ProgramCanvas {
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
         const world = this.screenToWorld(mouseX, mouseY);
-        const node = this.hittestNode(world);
-        if (node) {
+        const hittest = this.hittest(world);
+        if (!hittest) {
+            this.selection.nodes = []
+            this.dragging = false;
+            this.redraw();
+            return;
+        }
+        const {type, node} = hittest;
+        if (type === 'node') {
             this.selection.nodes = [
                 { id: node.id }
             ]
             this.dragging = { id: node.id, pos: { x: -world.x + node.rect.x, y: -world.y + node.rect.y } };
-        } else {
-            this.selection.nodes = []
-            this.dragging = false;
+        } else if (type === 'point') {
+            // do nothing
         }
         this.redraw();
     }
@@ -76,8 +82,9 @@ export class ProgramCanvas {
             this.redraw();
             return;
         }
-        if (this.hittestNode(world)) {
-            this.canvas.style.cursor = 'pointer'
+        const hittest = this.hittest(world);
+        if (hittest) {
+            this.canvas.style.cursor = hittest.type === 'point' ? 'crosshair' : 'pointer'
         } else {
             this.canvas.style.cursor = 'default'
         }
@@ -87,12 +94,33 @@ export class ProgramCanvas {
         return this.program.nodes.find((item) => item.id === id);
     }
 
-    private hittestNode(world: { x: number, y: number }) {
-        return this.program.nodes.find((node) => {
+    private hittest(world: { x: number, y: number }) {
+        for (const node of this.program.nodes) {
             const { x, y, w, h } = node.rect;
             const sur = NODE_SURROUND;
-            return world.x >= x - sur && world.x <= x + w + sur * 2 && world.y >= y - sur && world.y <= y + h + sur * 2;
-        });
+            const points = layoutPoints(node);
+            for (const point of points) {
+                if (
+                    world.x >= point.x - point.radius && 
+                    world.x <= point.x + point.radius &&
+                    world.y >= point.y - point.radius &&
+                    world.y <= point.y + point.radius
+                ) {
+                    return {
+                        type: 'point',
+                        node,
+                    }
+                }
+            }
+            
+            const inNode = world.x >= x - sur && world.x <= x + w + sur * 2 && world.y >= y - sur && world.y <= y + h + sur * 2;
+            if (inNode) {
+                return { 
+                    type: 'node',
+                    node
+                }
+            }
+        }
     }
 
     private onContextMenu = (e: PointerEvent) => {
@@ -265,7 +293,7 @@ export class ProgramCanvas {
             this.ctx.fillStyle = '#FFF';
             this.ctx.lineWidth = 0.1;
             this.ctx.beginPath();
-            this.ctx.arc(screen.x, screen.y, 0.25, 0, 2 * Math.PI);
+            this.ctx.arc(screen.x, screen.y, point.radius, 0, 2 * Math.PI);
             this.ctx.stroke();
             this.ctx.fill();
         }
