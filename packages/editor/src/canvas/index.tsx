@@ -15,7 +15,7 @@ export function Canvas() {
                     icon: '',
                     points: [
                         {
-                            type: 'input',
+                            type: 'output',
                             key: '',
                             name: '',
                             position: {
@@ -24,7 +24,7 @@ export function Canvas() {
                             }
                         },
                         {
-                            type: 'input',
+                            type: 'output',
                             key: '',
                             name: '',
                             position: {
@@ -35,7 +35,36 @@ export function Canvas() {
                         
                     ],
                     rect: { x: -4, y: -4, w: 3, h: 4 }
-                }
+                },
+                 {
+                    id: '2',
+                    type: 'Code',
+                    name: '执行代码',
+                    icon: '',
+                    points: [
+                        {
+                            type: 'input',
+                            key: '',
+                            name: '',
+                            position: {
+                                side: 'left',
+                                x: 0
+                            }
+                        },
+                        {
+                            type: 'input',
+                            key: '',
+                            name: '',
+                            position: {
+                                side: 'left',
+                                x: 1
+                            }
+                        },
+                        
+                    ],
+                    rect: { x: 6, y: -4, w: 3, h: 3 }
+                },
+                
             ]
         })
         return () => {
