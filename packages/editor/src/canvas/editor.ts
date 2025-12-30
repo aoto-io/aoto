@@ -31,6 +31,7 @@ export class Editor {
     private dragging: Dragging | false = false;
     private connectTo: { x: number; y: number, point?: PointLayout };
     private layout: ProgramLayout;
+    private redrawDirty = false;
     private activeTimeouts = new Map<string, number>();
 
     constructor(container: HTMLElement) {
@@ -132,25 +133,26 @@ export class Editor {
             this.redraw();
             return;
         }
+        const nowTime = Date.now();
         const hittest = this.layout.hittest(world);
         if (hittest) {
+            this.canvas.style.cursor = hittest.type === 'point' ? 'crosshair' : 'pointer'
             if (hittest.type === 'connection') {
                 const id = hittest.id;
-                if (this.activeTimeouts.has(id)) {
-                    clearTimeout(this.activeTimeouts.get(id));
-                }
-                this.activeTimeouts.set(id, setTimeout(() => {
-                    this.activeTimeouts.delete(id);
-                    this.layout.activeConnection(id, false);
-                    this.redraw();
-                }, 800));
                 this.layout.activeConnection(id, true);
+                this.activeTimeouts.set(id, nowTime + 600);
                 this.redraw();
+                return;
             }
-            this.canvas.style.cursor = hittest.type === 'point' ? 'crosshair' : 'pointer'
         } else {
             this.canvas.style.cursor = 'default'
         }
+        this.activeTimeouts.forEach((deadline, id) => {
+            if (nowTime > deadline) {
+                this.layout.deactiveConnection(id);
+                this.redraw();
+            }
+        })
     }
 
     private onContextMenu = (e: PointerEvent) => {
@@ -188,10 +190,17 @@ export class Editor {
         this.canvas.removeEventListener('mousedown', this.onMouseDown);
         this.canvas.removeEventListener('mousemove', this.onMouseMove);
         this.canvas.removeEventListener('mouseup', this.onMouseUp);
-        this.activeTimeouts.forEach((timeout) => clearTimeout(timeout));
     }
 
     private redraw() {
+        if (this.redrawDirty) {
+            return;
+        }
+        this.redrawDirty = true;
+        requestAnimationFrame(this.doRedraw);
+    }
+
+    private doRedraw = () => {
         this.ctx.save()
         this.ctx.clearRect(0, 0, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
         this.ctx.scale(this.scale * this.dpr, this.scale * this.dpr);
@@ -199,7 +208,8 @@ export class Editor {
         this.drawGridLines();
         this.drawProgram();
         this.drawConnections();
-        this.ctx.restore();
+        this.ctx.restore();   
+        this.redrawDirty = false;     
     }
 
     private drawConnections() {

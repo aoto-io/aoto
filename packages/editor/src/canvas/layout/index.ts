@@ -253,6 +253,10 @@ export class ProgramLayout {
         }
     }
 
+    deactiveConnection(id: string) {
+        this.activeConnections.delete(id);
+    }
+
     hittest(world: { x: number, y: number }) {
         for (const node of this.program.nodes) {
             const { x, y, w, h } = node.rect;
