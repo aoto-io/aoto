@@ -133,24 +133,32 @@ export class Editor {
             this.redraw();
             return;
         }
-        const nowTime = Date.now();
         const hittest = this.layout.hittest(world);
         if (hittest) {
             this.canvas.style.cursor = hittest.type === 'point' ? 'crosshair' : 'pointer'
             if (hittest.type === 'connection') {
                 const id = hittest.id;
+                if (this.activeTimeouts.has(id)) {
+                    // 清理回收器
+                    clearTimeout(this.activeTimeouts.get(id));
+                }
                 this.layout.activeConnection(id, true);
-                this.activeTimeouts.set(id, nowTime + 600);
+                this.activeTimeouts.set(id, 0);
                 this.redraw();
                 return;
             }
         } else {
             this.canvas.style.cursor = 'default'
         }
-        this.activeTimeouts.forEach((deadline, id) => {
-            if (nowTime > deadline) {
-                this.layout.deactiveConnection(id);
-                this.redraw();
+
+        this.activeTimeouts.forEach((timeout, id) => {
+            if (timeout === 0) {
+                // 开始回收
+                this.activeTimeouts.set(id, setTimeout(() => {
+                    this.activeTimeouts.delete(id);
+                    this.layout.activeConnection(id, false);
+                    this.redraw();
+                }, 600));
             }
         })
     }
@@ -190,6 +198,7 @@ export class Editor {
         this.canvas.removeEventListener('mousedown', this.onMouseDown);
         this.canvas.removeEventListener('mousemove', this.onMouseMove);
         this.canvas.removeEventListener('mouseup', this.onMouseUp);
+        this.activeTimeouts.forEach((timeout) => clearTimeout(timeout));
     }
 
     private redraw() {
