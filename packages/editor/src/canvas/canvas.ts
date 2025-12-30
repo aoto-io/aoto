@@ -1,8 +1,19 @@
-import { layoutPoints, layoutProgram, NODE_SURROUND, type DrawNode, type Program, type Selection } from "./layout/program";
+import { 
+    layoutPoint,
+    layoutPoints, 
+    layoutProgram, 
+    NODE_SURROUND, 
+    type DrawNode, 
+    type PointLayout, 
+    type Program, 
+    type ProgramNode, 
+    type Selection 
+} from "./layout/program";
 
 export interface Dragging {
-    id: string;
     type: 'node' | 'point',
+    node: ProgramNode,
+    point?: PointLayout;
     pos: { x: number; y: number; };
 }
 
@@ -20,7 +31,7 @@ export class ProgramCanvas {
     private viewport = { x: 0, y: 0, w: 0, h: 0 };
     private selection: Selection = { nodes: [] };
     private dragging: Dragging | false = false;
-    private connectTo: { x: number; y: number };
+    private connectTo: { x: number; y: number, point?: PointLayout };
 
     constructor(container: HTMLElement) {
         this.dpr = window.devicePixelRatio;
@@ -48,7 +59,7 @@ export class ProgramCanvas {
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
-        const world = this.screenToWorld(mouseX, mouseY);
+        const world = this.screenToWorld({ x: mouseX, y: mouseY });
         const hittest = this.hittest(world);
         if (!hittest) {
             this.selection.nodes = []
@@ -60,17 +71,29 @@ export class ProgramCanvas {
         const {type, node, point} = hittest;
         if (type === 'node') {
             this.selection.nodes = [
-                { id: node.id }
+                { id: node.name }
             ]
-            this.dragging = { id: node.id, type: 'node', pos: { x: -world.x + node.rect.x, y: -world.y + node.rect.y } };
+            this.dragging = { node, type: 'node', pos: { x: -world.x + node.rect.x, y: -world.y + node.rect.y } };
         } else if (type === 'point') {
-            this.dragging = { id: node.id, type: 'point', pos: { x: point.connect.x, y: point.connect.y } };
+            this.dragging = { node, type: 'point', point, pos: { x: point.connect.x, y: point.connect.y } };
         }
         this.redraw();
     }
 
     private onMouseUp = () => {
+        const dragging = this.dragging as Dragging;
+        const fromPoint = dragging?.point?.name;
+        const toPoint = this.connectTo?.point?.name;
         this.dragging = false;
+        // console.log(dragging, this.connectTo, toPoint)
+        if (fromPoint && toPoint) {
+            this.program.connections.push({
+                fromNode: dragging.node.name,
+                fromPoint: fromPoint,
+                toNode: this.connectTo.point.node,
+                toPoint: toPoint,
+            });
+        }
         this.connectTo = null;
         this.redraw();
     }
@@ -79,15 +102,30 @@ export class ProgramCanvas {
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
-        const world = this.screenToWorld(mouseX, mouseY);
+        const world = this.screenToWorld({ x: mouseX, y: mouseY });
         if (this.dragging) {
             const { type } = this.dragging;
             if (type === 'node') {
-                const node = this.findNode(this.dragging.id);
+                const node = this.dragging.node;
                 node.rect.x = Math.round(this.dragging.pos.x + world.x);
                 node.rect.y = Math.round(this.dragging.pos.y + world.y);
             } else if (type === 'point') {
-                this.connectTo = world;
+                const hittest = this.hittest(world);
+                const isPoint = 
+                    hittest && 
+                    hittest.type == 'point' && !(
+                        hittest.point.name === this.dragging.point.name &&
+                        hittest.point.node === this.dragging.node.name
+                    )
+                
+                const connect = isPoint ? hittest.point.connect : world;
+                this.connectTo = {
+                    x: connect.x,
+                    y: connect.y,
+                };
+                if (isPoint) {
+                    this.connectTo.point = hittest.point;
+                }
                 this.canvas.style.cursor = 'default'
             }
             this.redraw();
@@ -99,10 +137,6 @@ export class ProgramCanvas {
         } else {
             this.canvas.style.cursor = 'default'
         }
-    }
-
-    private findNode(id: string) {
-        return this.program.nodes.find((item) => item.id === id);
     }
 
     private hittest(world: { x: number, y: number }) {
@@ -146,7 +180,7 @@ export class ProgramCanvas {
         const mouseY = e.clientY - rect.top;
 
         if (e.ctrlKey || e.metaKey) {
-            const world = this.screenToWorld(mouseX, mouseY);
+            const world = this.screenToWorld({ x: mouseX, y: mouseY });
             const scaleRatio = 0.5;
             const newScale = this.scale - e.deltaY * scaleRatio;
             const clampedScale = Math.max(5, Math.min(newScale, 60));
@@ -179,16 +213,42 @@ export class ProgramCanvas {
         this.drawBackground();
         this.drawGridLines();
         this.drawProgram();
-        this.drawConnectTo();
+        this.drawConnections();
         this.ctx.restore();
     }
 
-    private drawConnectTo() {
-        if (!this.dragging || !this.connectTo) {
-            return;
+    private drawConnections() {
+        if (this.dragging && this.connectTo) {
+            const from = this.worldToScreen(this.dragging.pos);
+            const to = this.worldToScreen(this.connectTo);
+            this.drawConnection(from, to)    
         }
-        const from = this.worldToScreen(this.dragging.pos.x, this.dragging.pos.y);
-        const to = this.worldToScreen(this.connectTo.x, this.connectTo.y);
+        for (const connection of this.program.connections) {
+            console.log(connection);
+            const from = this.findPointByName(connection.fromNode, connection.fromPoint);
+            const to = this.findPointByName(connection.toNode, connection.toPoint);
+            if (!from || !to) {
+                continue;
+            }
+            const fromPoint = this.worldToScreen(layoutPoint(from.point, from.node).connect);
+            const toPoint = this.worldToScreen(layoutPoint(to.point, to.node).connect);
+            this.drawConnection(fromPoint, toPoint);
+        }
+    }
+
+    private findPointByName(node: string, point: string) {
+        const findNode = this.program.nodes.find((item) => item.name === node);
+        if (!findNode) {
+            return null;
+        }
+        const findPoint = findNode.points.find((item) => item.name === point);
+        if (!findPoint) {
+            return null;
+        }
+        return { node: findNode, point: findPoint };
+    }
+
+    private drawConnection(from: { x: number, y: number }, to: { x: number, y: number }) {
         const xCtrl = (from.x + to.x) / 2;
         this.ctx.save();
         this.ctx.lineWidth = 0.1;
@@ -271,7 +331,7 @@ export class ProgramCanvas {
     }
 
     private drawProgramNode(object: DrawNode) {
-        const nodePos = this.worldToScreen(object.rect.x, object.rect.y);
+        const nodePos = this.worldToScreen(object.rect);
         const x = nodePos.x - NODE_SURROUND;
         const y = nodePos.y - NODE_SURROUND;
         const w = object.rect.w + NODE_SURROUND * 2;
@@ -294,7 +354,7 @@ export class ProgramCanvas {
         this.ctx.stroke();
         this.ctx.fill();
         this.ctx.fillStyle = '#000';
-        const textPos = this.worldToScreen(object.rect.x + object.rect.w / 2, object.rect.y + object.rect.h);
+        const textPos = this.worldToScreen({ x: object.rect.x + object.rect.w / 2, y: object.rect.y + object.rect.h });
         this.drawText(textPos.x, textPos.y, object.name, 0.35);
         if (object.selected) {
             // shadow
@@ -330,7 +390,7 @@ export class ProgramCanvas {
         }
 
         for (const point of object.points) {
-            const screen = this.worldToScreen(point.x, point.y)
+            const screen = this.worldToScreen(point)
             this.ctx.strokeStyle = BORDER_COLOR;
             this.ctx.fillStyle = '#FFF';
             this.ctx.lineWidth = point.borderWidth;
@@ -353,16 +413,16 @@ export class ProgramCanvas {
         this.ctx.restore();
     }
 
-    private worldToScreen(worldX: number, worldY: number, hasScale = true): { x: number; y: number } {
+    private worldToScreen(world: { x: number; y: number }, hasScale = true): { x: number; y: number } {
         const scale = hasScale ? 1 : this.scale;
-        const screenX = (worldX - this.viewport.x) * scale;
-        const screenY = (worldY - this.viewport.y) * scale;
+        const screenX = (world.x - this.viewport.x) * scale;
+        const screenY = (world.y - this.viewport.y) * scale;
         return { x: screenX, y: screenY };
     }
 
-    private screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
-        const worldX = this.viewport.x + screenX / this.scale;
-        const worldY = this.viewport.y + screenY / this.scale;
+    private screenToWorld(screen: {x: number; y: number}): { x: number; y: number } {
+        const worldX = this.viewport.x + screen.x / this.scale;
+        const worldY = this.viewport.y + screen.y / this.scale;
         return { x: worldX, y: worldY };
     }
 }

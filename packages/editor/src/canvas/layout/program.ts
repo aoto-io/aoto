@@ -2,7 +2,6 @@ export const NODE_SURROUND = 0.1;
 
 export interface NodePoint {
     type: 'input' | 'output'
-    key: string;
     name: string;
     position: {
         /**
@@ -17,7 +16,6 @@ export interface NodePoint {
 }
 
 export interface ProgramNode {
-    id: string;
     type: string;
     name: string;
     icon: string;
@@ -25,9 +23,16 @@ export interface ProgramNode {
     rect: { x: number; y: number, w: number; h: number };
 }
 
+export interface NodeConnection {
+    fromNode: string;
+    fromPoint: string;
+    toNode: string;
+    toPoint: string;    
+}
+
 export interface Program {
     nodes: ProgramNode[],
-    // connections: [],
+    connections: NodeConnection[],
 }
 
 export interface PointLayout {
@@ -37,6 +42,7 @@ export interface PointLayout {
     connect: { x: number; y: number };
     radius: number;
     name: string;
+    node: string;
 }
 
 export interface DrawNode {
@@ -65,69 +71,81 @@ export function isInSelection(selection: Selection, id: string) {
     }));
 }
 
-export function layoutPoints(node: ProgramNode): PointLayout[] {
+export function layoutPoint(item: NodePoint, node: ProgramNode) {
     const radius = 0.25;
     const borderWidth = 0.1;
-    return node.points.map((item) => {
-        const half = 0.5;
-        const side = item.position.side;
-        if (side === 'top') {
-            const x = node.rect.x + item.position.x + half;
-            const y = node.rect.y - NODE_SURROUND
-            return {
-                x: x,
-                y: y,
-                connect: {
-                    x,
-                    y: y - radius - borderWidth / 2,
-                },
-                name: node.name,
-                radius,
-                borderWidth
-            }
-        } else if (side === 'right') {
-            const x = node.rect.x + node.rect.w + NODE_SURROUND;
-            const y = node.rect.y + item.position.x + half
-            return {
+    const half = 0.5;
+    const side = item.position.side;
+    if (side === 'top') {
+        const x = node.rect.x + item.position.x + half;
+        const y = node.rect.y - NODE_SURROUND
+        return {
+            x: x,
+            y: y,
+            connect: {
                 x,
-                y,
-                connect: {
-                    x: x + radius + borderWidth / 2,
-                    y,
-                },
-                name: node.name,
-                radius,
-                borderWidth
-            }
-        } else if (side === 'bottom') {
-            const x = node.rect.x + item.position.x + half;
-            const y = node.rect.y + node.rect.h + NODE_SURROUND
-            return {
-                x,
-                y,
-                connect: {
-                    x,
-                    y: y + radius + borderWidth / 2,
-                },
-                name: node.name,
-                radius,
-                borderWidth
-            }
-        } else {
-            const x = node.rect.x - NODE_SURROUND;
-            const y = node.rect.y + item.position.x + half;
-            return {
-                x,
-                y,
-                connect: {
-                    x: x - radius - borderWidth / 2,
-                    y,
-                },
-                name: node.name,
-                radius,
-                borderWidth
-            }
+                y: y - radius - borderWidth / 2,
+            },
+            name: item.name,
+            node: node.name,
+            radius,
+            borderWidth,
+            point: item,
         }
+    } else if (side === 'right') {
+        const x = node.rect.x + node.rect.w + NODE_SURROUND;
+        const y = node.rect.y + item.position.x + half
+        return {
+            x,
+            y,
+            connect: {
+                x: x + radius + borderWidth / 2,
+                y,
+            },
+            name: item.name,
+            node: node.name,
+            radius,
+            borderWidth,
+            point: item,
+        }
+    } else if (side === 'bottom') {
+        const x = node.rect.x + item.position.x + half;
+        const y = node.rect.y + node.rect.h + NODE_SURROUND
+        return {
+            x,
+            y,
+            connect: {
+                x,
+                y: y + radius + borderWidth / 2,
+            },
+            name: item.name,
+            node: node.name,
+            radius,
+            borderWidth,
+            point: item,
+        }
+    } else {
+        const x = node.rect.x - NODE_SURROUND;
+        const y = node.rect.y + item.position.x + half;
+        return {
+            x,
+            y,
+            connect: {
+                x: x - radius - borderWidth / 2,
+                y,
+            },
+            name: item.name,
+            node: node.name,
+            radius,
+            borderWidth,
+            point: item,
+        }
+    }
+}
+
+export function layoutPoints(node: ProgramNode): PointLayout[] {
+    return node.points.map((item) => {
+        return layoutPoint(item, node);
     })
 }
 
@@ -137,7 +155,7 @@ export function layoutProgram(program: Program, selection: Selection): ProgramLa
         result.nodes.push({
             rect: node.rect,
             fillStyle: '',
-            selected: isInSelection(selection, node.id),
+            selected: isInSelection(selection, node.name),
             name: node.name,
             points: layoutPoints(node),
         });

@@ -9,15 +9,13 @@ export function Canvas() {
         canvas.update({
             nodes: [
                 {
-                    id: '1',
                     type: 'Code',
                     name: '执行代码',
                     icon: '',
                     points: [
                         {
                             type: 'output',
-                            key: '',
-                            name: '',
+                            name: 'event1',
                             position: {
                                 side: 'right',
                                 x: 0
@@ -25,8 +23,7 @@ export function Canvas() {
                         },
                         {
                             type: 'output',
-                            key: '',
-                            name: '',
+                            name: 'event2',
                             position: {
                                 side: 'right',
                                 x: 1
@@ -37,15 +34,13 @@ export function Canvas() {
                     rect: { x: -4, y: -4, w: 3, h: 4 }
                 },
                  {
-                    id: '2',
                     type: 'Code',
-                    name: '执行代码',
+                    name: '执行代码2',
                     icon: '',
                     points: [
                         {
                             type: 'input',
-                            key: '',
-                            name: '',
+                            name: 'event1',
                             position: {
                                 side: 'left',
                                 x: 0
@@ -53,8 +48,7 @@ export function Canvas() {
                         },
                         {
                             type: 'input',
-                            key: '',
-                            name: '',
+                            name: 'event2',
                             position: {
                                 side: 'left',
                                 x: 1
@@ -65,7 +59,8 @@ export function Canvas() {
                     rect: { x: 6, y: -4, w: 3, h: 3 }
                 },
                 
-            ]
+            ],
+            connections: []
         })
         return () => {
             canvas.dispose();
