@@ -79,7 +79,7 @@ export function layoutPoints(node: ProgramNode): PointLayout[] {
                 y: y,
                 connect: {
                     x,
-                    y: y - radius - borderWidth,
+                    y: y - radius - borderWidth / 2,
                 },
                 name: node.name,
                 radius,
@@ -92,7 +92,7 @@ export function layoutPoints(node: ProgramNode): PointLayout[] {
                 x,
                 y,
                 connect: {
-                    x: x + radius + borderWidth,
+                    x: x + radius + borderWidth / 2,
                     y,
                 },
                 name: node.name,
@@ -107,7 +107,7 @@ export function layoutPoints(node: ProgramNode): PointLayout[] {
                 y,
                 connect: {
                     x,
-                    y: y + radius + borderWidth,
+                    y: y + radius + borderWidth / 2,
                 },
                 name: node.name,
                 radius,
@@ -120,7 +120,7 @@ export function layoutPoints(node: ProgramNode): PointLayout[] {
                 x,
                 y,
                 connect: {
-                    x: x - radius - borderWidth,
+                    x: x - radius - borderWidth / 2,
                     y,
                 },
                 name: node.name,
