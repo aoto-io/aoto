@@ -2,6 +2,7 @@ import { layoutPoints, layoutProgram, NODE_SURROUND, type DrawNode, type Program
 
 export interface Dragging {
     id: string;
+    type: 'node' | 'point',
     pos: { x: number; y: number; };
 }
 
@@ -19,6 +20,7 @@ export class ProgramCanvas {
     private viewport = { x: 0, y: 0, w: 0, h: 0 };
     private selection: Selection = { nodes: [] };
     private dragging: Dragging | false = false;
+    private connectTo: { x: number; y: number };
 
     constructor(container: HTMLElement) {
         this.dpr = window.devicePixelRatio;
@@ -51,23 +53,26 @@ export class ProgramCanvas {
         if (!hittest) {
             this.selection.nodes = []
             this.dragging = false;
+            this.connectTo = null;
             this.redraw();
             return;
         }
-        const {type, node} = hittest;
+        const {type, node, point} = hittest;
         if (type === 'node') {
             this.selection.nodes = [
                 { id: node.id }
             ]
-            this.dragging = { id: node.id, pos: { x: -world.x + node.rect.x, y: -world.y + node.rect.y } };
+            this.dragging = { id: node.id, type: 'node', pos: { x: -world.x + node.rect.x, y: -world.y + node.rect.y } };
         } else if (type === 'point') {
-            // do nothing
+            this.dragging = { id: node.id, type: 'point', pos: { x: point.connect.x, y: point.connect.y } };
         }
         this.redraw();
     }
 
     private onMouseUp = () => {
         this.dragging = false;
+        this.connectTo = null;
+        this.redraw();
     }
 
     private onMouseMove = (e: MouseEvent) => {
@@ -76,9 +81,15 @@ export class ProgramCanvas {
         const mouseY = e.clientY - rect.top;
         const world = this.screenToWorld(mouseX, mouseY);
         if (this.dragging) {
-            const node = this.findNode(this.dragging.id);
-            node.rect.x = Math.round(this.dragging.pos.x + world.x);
-            node.rect.y = Math.round(this.dragging.pos.y + world.y);
+            const { type } = this.dragging;
+            if (type === 'node') {
+                const node = this.findNode(this.dragging.id);
+                node.rect.x = Math.round(this.dragging.pos.x + world.x);
+                node.rect.y = Math.round(this.dragging.pos.y + world.y);
+            } else if (type === 'point') {
+                this.connectTo = world;
+                this.canvas.style.cursor = 'default'
+            }
             this.redraw();
             return;
         }
@@ -109,6 +120,7 @@ export class ProgramCanvas {
                     return {
                         type: 'point',
                         node,
+                        point
                     }
                 }
             }
@@ -167,6 +179,36 @@ export class ProgramCanvas {
         this.drawBackground();
         this.drawGridLines();
         this.drawProgram();
+        this.drawConnectTo();
+        this.ctx.restore();
+    }
+
+    private drawConnectTo() {
+        if (!this.dragging || !this.connectTo) {
+            return;
+        }
+        const from = this.worldToScreen(this.dragging.pos.x, this.dragging.pos.y);
+        const to = this.worldToScreen(this.connectTo.x, this.connectTo.y);
+        const xCtrl = (from.x + to.x) / 2;
+        this.ctx.save();
+        this.ctx.lineWidth = 0.1;
+        this.ctx.strokeStyle = '#6f6f6f';
+        this.ctx.beginPath();
+        this.ctx.moveTo(from.x, from.y);
+        this.ctx.bezierCurveTo(xCtrl, from.y, xCtrl, to.y, to.x, to.y);
+        this.ctx.stroke();
+        this.ctx.beginPath();
+
+        const triWidth = 0.3;
+        const triHeight = triWidth / 1.2;
+        const xOffset = 0.05;
+        const triangleX = to.x + xOffset;
+        this.ctx.fillStyle = '#6f6f6f';
+        this.ctx.moveTo(triangleX - triWidth, to.y - triHeight);
+        this.ctx.lineTo(triangleX - triWidth, to.y + triHeight);
+        this.ctx.lineTo(triangleX, to.y);
+        this.ctx.fill();
+
         this.ctx.restore();
     }
 
@@ -291,7 +333,7 @@ export class ProgramCanvas {
             const screen = this.worldToScreen(point.x, point.y)
             this.ctx.strokeStyle = BORDER_COLOR;
             this.ctx.fillStyle = '#FFF';
-            this.ctx.lineWidth = 0.1;
+            this.ctx.lineWidth = point.borderWidth;
             this.ctx.beginPath();
             this.ctx.arc(screen.x, screen.y, point.radius, 0, 2 * Math.PI);
             this.ctx.stroke();

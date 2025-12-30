@@ -33,6 +33,8 @@ export interface Program {
 export interface PointLayout {
     x: number;
     y: number;
+    borderWidth: number;
+    connect: { x: number; y: number };
     radius: number;
     name: string;
 }
@@ -63,38 +65,67 @@ export function isInSelection(selection: Selection, id: string) {
     }));
 }
 
-export function layoutPoints(node: ProgramNode) {
+export function layoutPoints(node: ProgramNode): PointLayout[] {
     const radius = 0.25;
+    const borderWidth = 0.1;
     return node.points.map((item) => {
         const half = 0.5;
         const side = item.position.side;
         if (side === 'top') {
+            const x = node.rect.x + item.position.x + half;
+            const y = node.rect.y - NODE_SURROUND
             return {
-                x: node.rect.x + item.position.x + half,
-                y: node.rect.y - NODE_SURROUND,
+                x: x,
+                y: y,
+                connect: {
+                    x,
+                    y: y - radius - borderWidth,
+                },
                 name: node.name,
-                radius
+                radius,
+                borderWidth
             }
         } else if (side === 'right') {
+            const x = node.rect.x + node.rect.w + NODE_SURROUND;
+            const y = node.rect.y + item.position.x + half
             return {
-                x: node.rect.x + node.rect.w + NODE_SURROUND,
-                y: node.rect.y + item.position.x + half,
+                x,
+                y,
+                connect: {
+                    x: x + radius + borderWidth,
+                    y,
+                },
                 name: node.name,
-                radius
+                radius,
+                borderWidth
             }
         } else if (side === 'bottom') {
+            const x = node.rect.x + item.position.x + half;
+            const y = node.rect.y + node.rect.h + NODE_SURROUND
             return {
-                x: node.rect.x + item.position.x + half,
-                y: node.rect.y + node.rect.h + NODE_SURROUND,
+                x,
+                y,
+                connect: {
+                    x,
+                    y: y + radius + borderWidth,
+                },
                 name: node.name,
-                radius
+                radius,
+                borderWidth
             }
         } else {
+            const x = node.rect.x - NODE_SURROUND;
+            const y = node.rect.y + item.position.x + half;
             return {
-                x: node.rect.x - NODE_SURROUND,
-                y: node.rect.y + item.position.x + half,
+                x,
+                y,
+                connect: {
+                    x: x - radius - borderWidth,
+                    y,
+                },
                 name: node.name,
-                radius
+                radius,
+                borderWidth
             }
         }
     })
