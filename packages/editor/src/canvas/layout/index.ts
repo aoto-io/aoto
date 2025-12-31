@@ -58,6 +58,8 @@ export interface DrawConnection {
     active: boolean;
     fromPoint: { x: number; y: number };
     toPoint: { x: number; y: number };
+    button: { x: number; y: number; w: number; h: number; key: string };
+    isInButton: boolean;
     path: Path2D;
 }
 
@@ -72,6 +74,10 @@ export interface Selection {
 export interface ProgramLayoutResult {
     nodes: DrawNode[];
     connections: DrawConnection[];
+}
+
+export function connectionToId(connection: NodeConnection) {
+    return `${connection.fromNode}:${connection.fromPoint}:${connection.toNode}:${connection.toPoint}`;
 }
 
 export function isInSelection(selection: Selection, id: string) {
@@ -164,7 +170,7 @@ export class ProgramLayout {
     private result: ProgramLayoutResult;
     private scale: number;
     private ctx: CanvasRenderingContext2D; // for connections hittest
-    private activeConnections = new Map<string, boolean>();
+    private activeConnections = new Map<string, { active: boolean; button: boolean; }>();
 
     constructor(ctx: CanvasRenderingContext2D) {
         this.ctx = ctx;
@@ -210,8 +216,24 @@ export class ProgramLayout {
             const path = new Path2D();
             path.moveTo(fromPoint.x, fromPoint.y);
             path.bezierCurveTo(xCtrl, fromPoint.y, xCtrl, toPoint.y, toPoint.x, toPoint.y);
-            const id = `${connection.fromNode}:${connection.fromPoint}:${connection.toNode}:${connection.toPoint}`;
-            this.result.connections.push({ id, fromPoint, toPoint, path, active: this.activeConnections.has(id) });
+            const btnSize = 0.9;
+            const id = connectionToId(connection);
+            const button = {
+                x: (fromPoint.x + toPoint.x) / 2 - btnSize / 2,
+                y: (fromPoint.y + toPoint.y) / 2 - btnSize / 2,
+                w: btnSize,
+                h: btnSize,
+                key: id,
+            };
+            this.result.connections.push({ 
+                id, 
+                fromPoint, 
+                toPoint, 
+                button,
+                path,
+                active: this.activeConnections.has(id),
+                isInButton: this.activeConnections.get(id)?.button,
+            });
         }
     }
 
@@ -240,17 +262,31 @@ export class ProgramLayout {
         return { x: worldX, y: worldY };
     }
 
-    activeConnection(id: string, active: boolean) {
+    activeConnection(id: string, change: {
+        active?: boolean;
+        button?: boolean;
+    }) {
+        
         const connection = this.result.connections.find((item) => {
             return item.id === id;
         })
-        if (connection) {
-            if (active) {
-                this.activeConnections.set(id, active);
+        let hasChanged = false;
+        if (change.button !== undefined && this.activeConnections.has(id)) {
+            const obj = this.activeConnections.get(id);
+            if (obj.button !== change.button) {
+                obj.button = change.button;
+                hasChanged = true;
+            }
+        }
+        if (connection && change.active !== undefined) {
+            if (change.active) {
+                this.activeConnections.set(id, { active: change.active, button: change.button });
             } else {
                 this.activeConnections.delete(id);
             }
+            hasChanged = true;
         }
+        return hasChanged;
     }
 
     deactiveConnection(id: string) {
@@ -289,10 +325,13 @@ export class ProgramLayout {
         this.ctx.beginPath();
         this.ctx.lineWidth = 1;
         for (const connection of this.result.connections) {
+            const { x, y, w, h } = connection.button;
+            const isInButton = screen.x >= x && screen.x <= x + w && screen.y >= y && screen.y <= y + h;
             if (this.ctx.isPointInStroke(connection.path, screen.x, screen.y)) {
                 return {
                     type: 'connection',
                     id: connection.id,
+                    isInButton
                 }
             }
         }

@@ -1,6 +1,9 @@
+import { ImageManager } from "./image";
 import { 
+    connectionToId,
     NODE_SURROUND, 
     ProgramLayout, 
+    type DrawConnection, 
     type DrawNode, 
     type PointLayout, 
     type Program, 
@@ -32,7 +35,8 @@ export class Editor {
     private connectTo: { x: number; y: number, point?: PointLayout };
     private layout: ProgramLayout;
     private redrawDirty = false;
-    private activeTimeouts = new Map<string, number>();
+    private activeConnections = new Map<string, number>();
+    private images: ImageManager;
 
     constructor(container: HTMLElement) {
         this.dpr = window.devicePixelRatio;
@@ -46,6 +50,10 @@ export class Editor {
         this.observer.observe(this.container);
         this.container.appendChild(this.canvas);
         this.layout = new ProgramLayout(this.ctx);
+        this.images = new ImageManager();
+        this.images.callback = () => {
+            this.redraw();
+        }
         this.bindEvents();
     }
 
@@ -57,11 +65,16 @@ export class Editor {
         this.canvas.addEventListener('mouseup', this.onMouseUp);
     }
 
-    private onMouseDown = (e: MouseEvent) => {
+    private getEventWorldPos(e: { clientX: number; clientY: number; }) {
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
         const world = this.layout.screenToWorld({ x: mouseX, y: mouseY });
+        return world;
+    }
+
+    private onMouseDown = (e: MouseEvent) => {
+        const world = this.getEventWorldPos(e);
         const hittest = this.layout.hittest(world);
         if (!hittest) {
             this.selection.nodes = []
@@ -82,12 +95,15 @@ export class Editor {
         this.redraw();
     }
 
-    private onMouseUp = () => {
+    private onMouseUp = (e: MouseEvent) => {
+        const world = this.getEventWorldPos(e);
+        const hittest = this.layout.hittest(world);
+
+        // 增加连线
         const dragging = this.dragging as Dragging;
         const fromPoint = dragging?.point?.name;
         const toPoint = this.connectTo?.point?.name;
         this.dragging = false;
-        // console.log(dragging, this.connectTo, toPoint)
         if (fromPoint && toPoint) {
             this.program.connections.push({
                 fromNode: dragging.node.name,
@@ -97,14 +113,22 @@ export class Editor {
             });
         }
         this.connectTo = null;
+
+        // 删除连线
+        if (hittest.type === 'connection' && hittest.isInButton) {
+            const index = this.program.connections.findIndex((item) => {
+                return connectionToId(item) === hittest.id;
+            })
+            if (index >= 0) {
+                this.program.connections.splice(index, 1);
+            }
+        }
+
         this.redraw();
     }
 
     private onMouseMove = (e: MouseEvent) => {
-        const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        const world = this.layout.screenToWorld({ x: mouseX, y: mouseY });
+        const world = this.getEventWorldPos(e);
         if (this.dragging) {
             const { type } = this.dragging;
             if (type === 'node') {
@@ -138,12 +162,15 @@ export class Editor {
             this.canvas.style.cursor = hittest.type === 'point' ? 'crosshair' : 'pointer'
             if (hittest.type === 'connection') {
                 const id = hittest.id;
-                if (this.activeTimeouts.has(id)) {
+                if (this.activeConnections.has(id)) {
                     // 清理回收器
-                    clearTimeout(this.activeTimeouts.get(id));
+                    clearTimeout(this.activeConnections.get(id));
                 }
-                this.layout.activeConnection(id, true);
-                this.activeTimeouts.set(id, 0);
+                this.layout.activeConnection(id, {
+                    active: true,
+                    button: hittest.isInButton
+                });
+                this.activeConnections.set(id, 0);
                 this.redraw();
                 return;
             }
@@ -151,12 +178,15 @@ export class Editor {
             this.canvas.style.cursor = 'default'
         }
 
-        this.activeTimeouts.forEach((timeout, id) => {
+        this.activeConnections.forEach((timeout, id) => {
+            if (this.layout.activeConnection(id, { button: false })) {
+                this.redraw();
+            }
             if (timeout === 0) {
                 // 开始回收
-                this.activeTimeouts.set(id, setTimeout(() => {
-                    this.activeTimeouts.delete(id);
-                    this.layout.activeConnection(id, false);
+                this.activeConnections.set(id, setTimeout(() => {
+                    this.activeConnections.delete(id);
+                    this.layout.activeConnection(id, { active: false });
                     this.redraw();
                 }, 600));
             }
@@ -198,7 +228,7 @@ export class Editor {
         this.canvas.removeEventListener('mousedown', this.onMouseDown);
         this.canvas.removeEventListener('mousemove', this.onMouseMove);
         this.canvas.removeEventListener('mouseup', this.onMouseUp);
-        this.activeTimeouts.forEach((timeout) => clearTimeout(timeout));
+        this.activeConnections.forEach((timeout) => clearTimeout(timeout));
     }
 
     private redraw() {
@@ -225,18 +255,31 @@ export class Editor {
         if (this.dragging && this.connectTo) {
             const from = this.layout.worldToScreen(this.dragging.pos);
             const to = this.layout.worldToScreen(this.connectTo);
-            this.drawConnection(from, to, false)
+            this.drawConnection({
+                id: '', 
+                fromPoint: from, 
+                toPoint: to,
+                active: false,
+                button: {
+                    x: 0,
+                    y: 0,
+                    w: 0,
+                    h: 0,
+                    key: ""
+                },
+                isInButton: false,
+                path: undefined
+            })
         }
         const result = this.layout.getResult();
         for (const connection of result.connections) {
-            const { fromPoint, toPoint, active } = connection
-            this.drawConnection(fromPoint, toPoint, active);
+            this.drawConnection(connection);
         }
     }
 
-    private drawConnection(from: { x: number, y: number }, to: { x: number, y: number }, active: boolean) {
+    private drawConnection(connection: DrawConnection) {
+        const { fromPoint: from, toPoint: to, active, button, isInButton } = connection;
         const color = active ? '#6f6f6f' : '#AAA';
-
         const xCtrl = (from.x + to.x) / 2;
         this.ctx.save();
         this.ctx.lineWidth = 0.1;
@@ -256,6 +299,21 @@ export class Editor {
         this.ctx.lineTo(triangleX - triWidth, to.y + triHeight);
         this.ctx.lineTo(triangleX, to.y);
         this.ctx.fill();
+
+        if (button && this.activeConnections.has(button.key)) {
+            const padding = 0.15;
+            this.ctx.fillStyle = isInButton ? 'rgba(196, 196, 196, 1)' : 'rgb(224, 224, 224)';
+            this.ctx.beginPath();
+            this.ctx.roundRect(button.x, button.y, button.w, button.h, 0.1);
+            this.ctx.fill();
+            this.ctx.drawImage(
+                this.images.get('DustBin'), 
+                button.x + padding, 
+                button.y + padding, 
+                button.w - padding * 2, 
+                button.h - padding * 2
+            );
+        }
 
         this.ctx.restore();
     }
