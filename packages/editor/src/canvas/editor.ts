@@ -38,6 +38,8 @@ export class Editor {
     private activeConnections = new Map<string, number>();
     private images: ImageManager;
 
+    public onNodeSettings: (node: ProgramNode) => void;
+
     constructor(container: HTMLElement) {
         this.dpr = window.devicePixelRatio;
         this.container = container;
@@ -59,10 +61,34 @@ export class Editor {
 
     private bindEvents() {
         this.canvas.addEventListener('wheel', this.onWheel);
+        this.canvas.addEventListener('dblclick', this.onDblClick);
         this.canvas.addEventListener('contextmenu', this.onContextMenu);
         this.canvas.addEventListener('mousedown', this.onMouseDown);
         this.canvas.addEventListener('mousemove', this.onMouseMove);
         this.canvas.addEventListener('mouseup', this.onMouseUp);
+    }
+
+    dispose() {
+        this.observer.disconnect();
+        this.container.removeChild(this.canvas);
+        this.canvas.removeEventListener('wheel', this.onWheel);
+        this.canvas.removeEventListener('dblclick', this.onDblClick);
+        this.canvas.removeEventListener('contextmenu', this.onContextMenu);
+        this.canvas.removeEventListener('mousedown', this.onMouseDown);
+        this.canvas.removeEventListener('mousemove', this.onMouseMove);
+        this.canvas.removeEventListener('mouseup', this.onMouseUp);
+        this.activeConnections.forEach((timeout) => clearTimeout(timeout));
+    }
+
+    private onDblClick = () => {
+        if (!this.onNodeSettings) {
+            return;
+        }
+        const [node] = this.selection.nodes;
+        if (!node) {
+            return;
+        }
+        this.onNodeSettings(node);
     }
 
     private getEventWorldPos(e: { clientX: number; clientY: number; }) {
@@ -85,9 +111,7 @@ export class Editor {
         }
         const {type, node, point} = hittest;
         if (type === 'node') {
-            this.selection.nodes = [
-                { id: node.name }
-            ]
+            this.selection.nodes = [node]
             this.dragging = { node, type: 'node', pos: { x: -world.x + node.rect.x, y: -world.y + node.rect.y } };
         } else if (type === 'point') {
             this.dragging = { node, type: 'point', point, pos: { x: point.connect.x, y: point.connect.y } };
@@ -218,17 +242,6 @@ export class Editor {
             this.viewport.y += e.deltaY / this.scale;
         }
         this.redraw();
-    }
-
-    dispose() {
-        this.observer.disconnect();
-        this.container.removeChild(this.canvas);
-        this.canvas.removeEventListener('wheel', this.onWheel);
-        this.canvas.removeEventListener('contextmenu', this.onContextMenu);
-        this.canvas.removeEventListener('mousedown', this.onMouseDown);
-        this.canvas.removeEventListener('mousemove', this.onMouseMove);
-        this.canvas.removeEventListener('mouseup', this.onMouseUp);
-        this.activeConnections.forEach((timeout) => clearTimeout(timeout));
     }
 
     private redraw() {

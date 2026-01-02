@@ -1,11 +1,11 @@
+import { Editor } from './editor'
 import { SideBar } from './sidebar'
-import { Canvas } from './canvas'
 
 function App() {
   return (
     <div className='flex h-[100%] w-[100%]'>
       <SideBar></SideBar>
-      <Canvas></Canvas>
+      <Editor className='flex-1'></Editor>
     </div>
   )
 }

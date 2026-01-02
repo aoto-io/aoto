@@ -63,12 +63,9 @@ export interface DrawConnection {
     path: Path2D;
 }
 
-export interface ProgramObject {
-    id: string;
-}
 
 export interface Selection {
-    nodes: ProgramObject[];
+    nodes: ProgramNode[];
 }
 
 export interface ProgramLayoutResult {
@@ -80,9 +77,9 @@ export function connectionToId(connection: NodeConnection) {
     return `${connection.fromNode}:${connection.fromPoint}:${connection.toNode}:${connection.toPoint}`;
 }
 
-export function isInSelection(selection: Selection, id: string) {
+export function isInSelection(selection: Selection, name: string) {
     return Boolean(selection.nodes.find((item) => {
-        return item.id === id;
+        return item.name === name;
     }));
 }
 

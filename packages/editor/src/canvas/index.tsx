@@ -1,11 +1,21 @@
 import { useEffect, useRef } from "react"
 import { Editor } from "./editor";
+import classNames from "classnames";
+import type { ProgramNode } from "./layout";
 
-export function Canvas() {
+export interface ICanvasEditorProps {
+    className?: string;
+    onNodeSettings: (node: ProgramNode) => void;
+}
+
+export function CanvasEditor(props: ICanvasEditorProps) {
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const canvas = new Editor(containerRef.current);
+        canvas.onNodeSettings = (node: ProgramNode) => {
+            props.onNodeSettings?.(node);
+        }
         canvas.update({
             nodes: [
                 {
@@ -75,7 +85,7 @@ export function Canvas() {
     }, []);
 
     return (
-        <div ref={containerRef} className="container flex-1 flex overflow-hidden">
+        <div ref={containerRef} className={classNames("container flex-1 flex overflow-hidden", props.className)}>
         </div>
     )
 }
